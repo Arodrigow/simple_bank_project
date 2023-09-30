@@ -21,7 +21,8 @@ func TestTransferTx(t *testing.T) {
 
 	for i := 0; i < n; i++ {
 		go func() {
-			result, err := store.TransferTx(context.Background(), TransferTxParams{
+			ctx := context.Background()
+			result, err := store.TransferTx(ctx, TransferTxParams{
 				FromAccountID: mockFromAccount.ID,
 				ToAccountID:   mockToAccount.ID,
 				Amount:        amount,
@@ -32,6 +33,7 @@ func TestTransferTx(t *testing.T) {
 		}()
 	}
 
+	existed := make(map[int]bool)
 	for i := 0; i < n; i++ {
 		err := <-errs
 		require.NoError(t, err)
@@ -70,6 +72,32 @@ func TestTransferTx(t *testing.T) {
 		_, err = store.GetEntry(context.Background(), toEntry.ID)
 		require.NoError(t, err)
 
-		//TODO: check account's balance
+		fromAccount := result.FromAccount
+		require.NotEmpty(t, fromAccount)
+		require.Equal(t, mockFromAccount.ID, fromAccount.ID)
+
+		toAccount := result.ToAccount
+		require.NotEmpty(t, toAccount)
+		require.Equal(t, mockToAccount.ID, toAccount.ID)
+
+		diff1 := mockFromAccount.Balance - fromAccount.Balance
+		diff2 := toAccount.Balance - mockToAccount.Balance
+		require.Equal(t, diff1, diff2)
+		require.True(t, diff1 > 0)
+		require.True(t, diff1%amount == 0)
+
+		k := int(diff1 / amount)
+		require.True(t, k >= 1 && k <= n)
+		require.NotContains(t, existed, k)
+		existed[k] = true
 	}
+
+	updatedFromAccount, err := testQueries.GetAccount(context.Background(), mockFromAccount.ID)
+	require.NoError(t, err)
+
+	updatedToAccount, err := testQueries.GetAccount(context.Background(), mockToAccount.ID)
+	require.NoError(t, err)
+
+	require.Equal(t, mockFromAccount.Balance-amount*int64(n), updatedFromAccount.Balance)
+	require.Equal(t, mockToAccount.Balance+amount*int64(n), updatedToAccount.Balance)
 }
