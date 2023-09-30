@@ -101,3 +101,50 @@ func TestTransferTx(t *testing.T) {
 	require.Equal(t, mockFromAccount.Balance-amount*int64(n), updatedFromAccount.Balance)
 	require.Equal(t, mockToAccount.Balance+amount*int64(n), updatedToAccount.Balance)
 }
+
+func TestTransferTxDeadlock(t *testing.T) {
+	store := NewStore(testDB)
+
+	mockFromAccount := createRandomAccount(t)
+	mockToAccount := createRandomAccount(t)
+
+	n := 10
+	amount := int64(10)
+
+	errs := make(chan error)
+
+	for i := 0; i < n; i++ {
+		fromAccountID := mockFromAccount.ID
+		toAccountID := mockToAccount.ID
+
+		if i%2 == 1 {
+			fromAccountID = mockToAccount.ID
+			toAccountID = mockFromAccount.ID
+		}
+
+		go func() {
+			ctx := context.Background()
+			_, err := store.TransferTx(ctx, TransferTxParams{
+				FromAccountID: fromAccountID,
+				ToAccountID:   toAccountID,
+				Amount:        amount,
+			})
+
+			errs <- err
+		}()
+	}
+
+	for i := 0; i < n; i++ {
+		err := <-errs
+		require.NoError(t, err)
+	}
+
+	updatedFromAccount, err := testQueries.GetAccount(context.Background(), mockFromAccount.ID)
+	require.NoError(t, err)
+
+	updatedToAccount, err := testQueries.GetAccount(context.Background(), mockToAccount.ID)
+	require.NoError(t, err)
+
+	require.Equal(t, mockFromAccount.Balance, updatedFromAccount.Balance)
+	require.Equal(t, mockToAccount.Balance, updatedToAccount.Balance)
+}
