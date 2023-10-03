@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"net/http"
 
+	db "github.com/Arodrigow/simple_bank_project/db/sqlc"
 	"github.com/gin-gonic/gin"
-	db "github.comarodrigowsimple_bank/db/sqlc"
 )
 
 type createAccountRequest struct {
@@ -78,7 +78,7 @@ func (server *Server) getAllAccounts(ctx *gin.Context) {
 
 	accounts, err := server.store.ListAccounts(ctx, arg)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}
 
