@@ -2,6 +2,8 @@ package api
 
 import (
 	db "github.com/Arodrigow/simple_bank_project/db/sqlc"
+	"github.com/Arodrigow/simple_bank_project/token"
+	"github.com/Arodrigow/simple_bank_project/util"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
@@ -9,20 +11,36 @@ import (
 
 // Server serves HTTP requests for the banking service
 type Server struct {
+	config util.Config
 	store  db.Store
+	token  token.Maker
 	router *gin.Engine
 }
 
 // NewServer creates a new HTTP server and setup routing
-func NewServer(store db.Store) *Server {
-	server := &Server{store: store}
-	router := gin.Default()
+func NewServer(config util.Config, store db.Store) *Server {
+	tokenMaker := token.NewPasetoMaker()
+
+	server := &Server{
+		config: config,
+		store:  store,
+		token:  tokenMaker,
+	}
 
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		v.RegisterValidation("currency", validCurrency)
 	}
+	server.setupRouter()
+	return server
+}
+
+func (server *Server) setupRouter() {
+
+	router := gin.Default()
 
 	router.POST("/users", server.createUser)
+	router.POST("/users/login", server.loginUser)
+
 	router.POST("/accounts", server.createAccount)
 	router.GET("/accounts/:id", server.getAccountById)
 	router.GET("/accounts", server.getAllAccounts)
@@ -30,7 +48,6 @@ func NewServer(store db.Store) *Server {
 	router.POST("/transfers", server.createTransfer)
 
 	server.router = router
-	return server
 }
 
 func (server *Server) Start(address string) error {
