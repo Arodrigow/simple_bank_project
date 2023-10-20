@@ -6,7 +6,11 @@ on:
 
 jobs:
 
-  deploy:
+  build:
+    permissions:
+      id-token: write
+      contents: read
+
     name: Build image
     runs-on: ubuntu-latest
 
@@ -15,9 +19,7 @@ jobs:
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        # role-to-assume: arn:aws:iam::664582270481:user/github-ci-simplebank
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        role-to-assume: arn:aws:iam::664582270481:user/github-ci-simplebank
         aws-region: sa-east-1
 
     - name: Login to Amazon ECR
@@ -30,5 +32,5 @@ jobs:
           REPOSITORY: simplebank
           IMAGE_TAG: ${{ github.sha }}
       run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push -a $ECR_REGISTRY/$ECR_REPOSITORY
+          docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
+          docker push -a $REGISTRY/$REPOSITORY:$IMAGE_TAG
